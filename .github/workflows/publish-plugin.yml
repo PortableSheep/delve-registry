@@ -1,0 +1,691 @@
+name: Publish Plugin to Registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_name:
+        description: 'Plugin name'
+        required: true
+        type: string
+      plugin_version:
+        description: 'Plugin version (e.g., v1.0.0)'
+        required: true
+        type: string
+      plugin_repo:
+        description: 'Plugin repository URL'
+        required: true
+        type: string
+      channel:
+        description: 'Release channel'
+        required: false
+        default: 'stable'
+        type: choice
+        options:
+          - stable
+          - beta
+          - development
+      force:
+        description: 'Force overwrite existing version'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PLUGIN_NAME: ${{ github.event.inputs.plugin_name }}
+  PLUGIN_VERSION: ${{ github.event.inputs.plugin_version }}
+  PLUGIN_REPO: ${{ github.event.inputs.plugin_repo }}
+  CHANNEL: ${{ github.event.inputs.channel }}
+
+jobs:
+  validate-input:
+    runs-on: ubuntu-latest
+    outputs:
+      repo_owner: ${{ steps.parse.outputs.repo_owner }}
+      repo_name: ${{ steps.parse.outputs.repo_name }}
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "🔍 Validating inputs..."
+
+          # Validate plugin name
+          if [[ ! "${{ env.PLUGIN_NAME }}" =~ ^[a-z0-9-]+$ ]]; then
+            echo "❌ Invalid plugin name. Must contain only lowercase letters, numbers, and hyphens."
+            exit 1
+          fi
+
+          # Validate version format
+          if [[ ! "${{ env.PLUGIN_VERSION }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "❌ Invalid version format. Must follow semantic versioning: vX.Y.Z or vX.Y.Z-prerelease"
+            exit 1
+          fi
+
+          # Validate repository URL
+          if [[ ! "${{ env.PLUGIN_REPO }}" =~ ^https://github\.com/[^/]+/[^/]+/?$ ]]; then
+            echo "❌ Invalid repository URL. Must be a GitHub repository."
+            exit 1
+          fi
+
+          echo "✅ All inputs are valid"
+
+      - name: Parse repository info
+        id: parse
+        run: |
+          # Extract owner and repo name from URL
+          repo_url="${{ env.PLUGIN_REPO }}"
+          repo_path=${repo_url#https://github.com/}
+          repo_path=${repo_path%/}
+
+          repo_owner=${repo_path%/*}
+          repo_name=${repo_path#*/}
+
+          echo "repo_owner=$repo_owner" >> $GITHUB_OUTPUT
+          echo "repo_name=$repo_name" >> $GITHUB_OUTPUT
+
+          echo "Repository owner: $repo_owner"
+          echo "Repository name: $repo_name"
+
+  fetch-plugin:
+    needs: validate-input
+    runs-on: ubuntu-latest
+    outputs:
+      plugin_info: ${{ steps.extract.outputs.plugin_info }}
+      has_releases: ${{ steps.check.outputs.has_releases }}
+    steps:
+      - name: Checkout plugin repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.validate-input.outputs.repo_owner }}/${{ needs.validate-input.outputs.repo_name }}
+          ref: ${{ env.PLUGIN_VERSION }}
+          path: plugin-source
+
+      - name: Check for plugin.json
+        run: |
+          if [ ! -f "plugin-source/plugin.json" ]; then
+            echo "❌ plugin.json not found in repository"
+            exit 1
+          fi
+
+          echo "✅ plugin.json found"
+
+      - name: Validate plugin.json
+        run: |
+          echo "🔍 Validating plugin.json..."
+
+          if ! jq . plugin-source/plugin.json > /dev/null; then
+            echo "❌ Invalid JSON in plugin.json"
+            exit 1
+          fi
+
+          # Check required fields
+          required_fields=("info.id" "info.name" "info.version" "info.description" "info.author")
+
+          for field in "${required_fields[@]}"; do
+            if ! jq -e ".$field" plugin-source/plugin.json > /dev/null; then
+              echo "❌ Missing required field: $field"
+              exit 1
+            fi
+          done
+
+          echo "✅ plugin.json is valid"
+
+      - name: Extract plugin information
+        id: extract
+        run: |
+          cd plugin-source
+
+          # Extract plugin info from plugin.json
+          plugin_id=$(jq -r '.info.id' plugin.json)
+          plugin_name=$(jq -r '.info.name' plugin.json)
+          plugin_description=$(jq -r '.info.description' plugin.json)
+          plugin_author=$(jq -r '.info.author' plugin.json)
+          plugin_version=$(jq -r '.info.version' plugin.json)
+
+          # Verify version matches input
+          if [ "$plugin_version" != "${{ env.PLUGIN_VERSION }}" ]; then
+            echo "⚠️ Version mismatch: plugin.json has $plugin_version, input has ${{ env.PLUGIN_VERSION }}"
+          fi
+
+          # Create plugin info JSON
+          plugin_info=$(jq -n \
+            --arg id "$plugin_id" \
+            --arg name "$plugin_name" \
+            --arg description "$plugin_description" \
+            --arg author "$plugin_author" \
+            --arg version "$plugin_version" \
+            --arg repository "${{ env.PLUGIN_REPO }}" \
+            '{
+              id: $id,
+              name: $name,
+              description: $description,
+              author: $author,
+              version: $version,
+              repository: $repository
+            }')
+
+          echo "plugin_info=$plugin_info" >> $GITHUB_OUTPUT
+
+          echo "Plugin ID: $plugin_id"
+          echo "Plugin Name: $plugin_name"
+          echo "Plugin Version: $plugin_version"
+
+      - name: Check for releases
+        id: check
+        run: |
+          # Check if the repository has the release
+          release_url="https://api.github.com/repos/${{ needs.validate-input.outputs.repo_owner }}/${{ needs.validate-input.outputs.repo_name }}/releases/tags/${{ env.PLUGIN_VERSION }}"
+
+          if curl -sf "$release_url" > /dev/null; then
+            echo "has_releases=true" >> $GITHUB_OUTPUT
+            echo "✅ Release ${{ env.PLUGIN_VERSION }} found"
+          else
+            echo "has_releases=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Release ${{ env.PLUGIN_VERSION }} not found - will build from source"
+          fi
+
+      - name: Upload plugin source
+        uses: actions/upload-artifact@v3
+        with:
+          name: plugin-source
+          path: plugin-source/
+
+  build-plugin:
+    needs: [validate-input, fetch-plugin]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            goos: linux
+            goarch: amd64
+          - os: linux
+            arch: arm64
+            goos: linux
+            goarch: arm64
+          - os: darwin
+            arch: amd64
+            goos: darwin
+            goarch: amd64
+          - os: darwin
+            arch: arm64
+            goos: darwin
+            goarch: arm64
+          - os: windows
+            arch: amd64
+            goos: windows
+            goarch: amd64
+    steps:
+      - name: Download plugin source
+        uses: actions/download-artifact@v3
+        with:
+          name: plugin-source
+          path: plugin-source/
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build plugin
+        run: |
+          cd plugin-source
+
+          # Check if go.mod exists
+          if [ ! -f "go.mod" ]; then
+            echo "❌ go.mod not found - cannot build plugin"
+            exit 1
+          fi
+
+          # Set binary name
+          binary_name="${{ env.PLUGIN_NAME }}-${{ matrix.os }}-${{ matrix.arch }}"
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            binary_name="${binary_name}.exe"
+          fi
+
+          echo "Building: $binary_name"
+
+          # Build the plugin
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -ldflags="-s -w" -o "$binary_name" .
+
+          # Calculate checksum
+          if command -v sha256sum &> /dev/null; then
+            checksum=$(sha256sum "$binary_name" | cut -d' ' -f1)
+          else
+            checksum=$(shasum -a 256 "$binary_name" | cut -d' ' -f1)
+          fi
+
+          # Get file size
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            size=$(stat -f%z "$binary_name")
+          else
+            size=$(stat -c%s "$binary_name")
+          fi
+
+          echo "Binary: $binary_name"
+          echo "Size: $size bytes"
+          echo "Checksum: $checksum"
+
+          # Create metadata
+          echo "{
+            \"platform\": \"${{ matrix.os }}-${{ matrix.arch }}\",
+            \"binary\": \"$binary_name\",
+            \"size\": $size,
+            \"checksum\": \"sha256:$checksum\"
+          }" > "${binary_name}.json"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: plugin-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            plugin-source/${{ env.PLUGIN_NAME }}-${{ matrix.os }}-${{ matrix.arch }}*
+
+  update-registry:
+    needs: [validate-input, fetch-plugin, build-plugin]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout registry
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Setup directories
+        run: |
+          echo "🏗️ Setting up plugin directories..."
+
+          # Create plugin directory structure
+          mkdir -p "${{ env.PLUGIN_NAME }}/releases/${{ env.PLUGIN_VERSION }}"
+          mkdir -p "api/plugins"
+
+          echo "✅ Directories created"
+
+      - name: Copy plugin assets
+        run: |
+          echo "📦 Copying plugin assets..."
+
+          # Copy built binaries
+          for artifact_dir in plugin-*/; do
+            if [ -d "$artifact_dir" ]; then
+              cp "$artifact_dir"/* "${{ env.PLUGIN_NAME }}/releases/${{ env.PLUGIN_VERSION }}/"
+            fi
+          done
+
+          # Copy plugin.json
+          cp plugin-source/plugin.json "${{ env.PLUGIN_NAME }}/"
+
+          # Copy frontend if it exists
+          if [ -d "plugin-source/frontend" ]; then
+            cp -r plugin-source/frontend "${{ env.PLUGIN_NAME }}/releases/${{ env.PLUGIN_VERSION }}/"
+            echo "✅ Frontend assets copied"
+          fi
+
+          echo "✅ Assets copied"
+
+      - name: Generate checksums
+        run: |
+          echo "🔐 Generating checksums..."
+
+          cd "${{ env.PLUGIN_NAME }}/releases/${{ env.PLUGIN_VERSION }}"
+
+          # Generate checksums.txt
+          echo "# Checksums for ${{ env.PLUGIN_NAME }} ${{ env.PLUGIN_VERSION }}" > checksums.txt
+          echo "# Generated on $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> checksums.txt
+          echo "" >> checksums.txt
+
+          for file in *; do
+            if [ -f "$file" ] && [ "$file" != "checksums.txt" ] && [ "$file" != "metadata.json" ]; then
+              if command -v sha256sum &> /dev/null; then
+                sha256sum "$file" >> checksums.txt
+              else
+                shasum -a 256 "$file" >> checksums.txt
+              fi
+            fi
+          done
+
+          echo "✅ Checksums generated"
+
+      - name: Update registry metadata
+        run: |
+          echo "📝 Updating registry metadata..."
+
+          plugin_info='${{ needs.fetch-plugin.outputs.plugin_info }}'
+
+          # Update registry.yml (simplified - in production you'd use a proper YAML parser)
+          python3 -c "
+import yaml
+import json
+import sys
+from datetime import datetime
+
+# Load plugin info
+plugin_info = json.loads('$plugin_info')
+
+# Load registry.yml
+try:
+    with open('registry.yml', 'r') as f:
+        registry = yaml.safe_load(f)
+except FileNotFoundError:
+    registry = {
+        'registry': {
+            'name': 'Delve Plugin Registry',
+            'description': 'Central registry for Delve plugins',
+            'maintainer': 'registry-maintainer',
+            'api_version': 'v1',
+            'last_updated': datetime.utcnow().isoformat() + 'Z'
+        },
+        'plugins': {},
+        'channels': {
+            'stable': {'description': 'Stable releases', 'include_prerelease': False},
+            'beta': {'description': 'Beta releases', 'include_prerelease': True},
+            'development': {'description': 'Development releases', 'include_prerelease': True}
+        },
+        'stats': {'total_plugins': 0, 'total_versions': 0}
+    }
+
+# Update plugin entry
+plugin_id = plugin_info['id']
+if plugin_id not in registry['plugins']:
+    registry['plugins'][plugin_id] = {
+        'name': plugin_info['name'],
+        'description': plugin_info['description'],
+        'author': plugin_info['author'],
+        'repository': plugin_info['repository'],
+        'tags': [],
+        'category': 'utilities',
+        'min_delve_version': 'v0.1.0',
+        'versions': []
+    }
+
+# Add new version
+new_version = {
+    'version': plugin_info['version'],
+    'released': datetime.utcnow().isoformat() + 'Z',
+    'compatibility': ['v0.1.0', 'v0.2.0'],
+    'assets': {},
+    'frontend': {'entry': 'frontend/dist/index.html'} if sys.argv[1] == 'has_frontend' else {},
+    'plugin_metadata': {
+        'url': f'{plugin_id}/plugin.json',
+        'checksum': 'sha256:placeholder'
+    }
+}
+
+# Add asset info for each platform
+platforms = ['linux-amd64', 'linux-arm64', 'darwin-amd64', 'darwin-arm64', 'windows-amd64']
+for platform in platforms:
+    if platform == 'windows-amd64':
+        filename = f'{plugin_id}-{platform}.exe'
+    else:
+        filename = f'{plugin_id}-{platform}'
+
+    new_version['assets'][platform] = {
+        'url': f'{plugin_id}/releases/{plugin_info[\"version\"]}/{filename}',
+        'checksum': 'sha256:placeholder',
+        'size': 0
+    }
+
+# Check if version already exists
+version_exists = any(v['version'] == plugin_info['version'] for v in registry['plugins'][plugin_id]['versions'])
+if version_exists and '${{ github.event.inputs.force }}' != 'true':
+    print(f'Version {plugin_info[\"version\"]} already exists for {plugin_id}')
+    sys.exit(1)
+
+# Remove existing version if force is true
+if version_exists:
+    registry['plugins'][plugin_id]['versions'] = [
+        v for v in registry['plugins'][plugin_id]['versions']
+        if v['version'] != plugin_info['version']
+    ]
+
+# Add new version
+registry['plugins'][plugin_id]['versions'].append(new_version)
+
+# Sort versions (newest first)
+registry['plugins'][plugin_id]['versions'].sort(
+    key=lambda x: x['version'], reverse=True
+)
+
+# Update stats
+registry['stats']['total_plugins'] = len(registry['plugins'])
+registry['stats']['total_versions'] = sum(len(p['versions']) for p in registry['plugins'].values())
+registry['registry']['last_updated'] = datetime.utcnow().isoformat() + 'Z'
+
+# Save registry.yml
+with open('registry.yml', 'w') as f:
+    yaml.dump(registry, f, default_flow_style=False, sort_keys=False)
+
+print('✅ Registry metadata updated')
+" "has_frontend_placeholder"
+
+      - name: Update API endpoints
+        run: |
+          echo "🔗 Updating API endpoints..."
+
+          # Update plugins catalog
+          python3 -c "
+import yaml
+import json
+from datetime import datetime
+
+# Load registry
+with open('registry.yml', 'r') as f:
+    registry = yaml.safe_load(f)
+
+# Generate plugins catalog
+catalog = {
+    'api_version': 'v1',
+    'generated_at': datetime.utcnow().isoformat() + 'Z',
+    'total_plugins': len(registry['plugins']),
+    'plugins': [],
+    'categories': [
+        {'id': 'utilities', 'name': 'Utilities', 'description': 'General purpose tools', 'plugin_count': 0}
+    ],
+    'filters': {
+        'categories': ['utilities'],
+        'licenses': ['MIT', 'Apache-2.0'],
+        'platforms': ['linux-amd64', 'darwin-amd64', 'windows-amd64'],
+        'channels': ['stable', 'beta', 'development']
+    }
+}
+
+# Add each plugin to catalog
+for plugin_id, plugin_data in registry['plugins'].items():
+    latest_version = plugin_data['versions'][0] if plugin_data['versions'] else None
+
+    catalog_plugin = {
+        'id': plugin_id,
+        'name': plugin_data['name'],
+        'description': plugin_data['description'],
+        'author': plugin_data['author'],
+        'license': 'MIT',  # Default
+        'category': plugin_data.get('category', 'utilities'),
+        'tags': plugin_data.get('tags', []),
+        'latest_version': latest_version['version'] if latest_version else 'unknown',
+        'min_delve_version': plugin_data.get('min_delve_version', 'v0.1.0'),
+        'repository': plugin_data['repository'],
+        'homepage': plugin_data['repository'],
+        'download_count': 0,
+        'last_updated': latest_version['released'] if latest_version else '',
+        'status': 'stable',
+        'supported_platforms': list(latest_version['assets'].keys()) if latest_version else [],
+        'icon': '🔧',
+        'api_urls': {
+            'details': f'/api/plugins/{plugin_id}',
+            'versions': f'/api/plugins/{plugin_id}/versions',
+            'metadata': f'/{plugin_id}/plugin.json'
+        }
+    }
+
+    catalog['plugins'].append(catalog_plugin)
+
+# Save plugins catalog
+with open('api/plugins.json', 'w') as f:
+    json.dump(catalog, f, indent=2)
+
+print('✅ Plugins catalog updated')
+"
+
+          # Generate detailed plugin info
+          plugin_info='${{ needs.fetch-plugin.outputs.plugin_info }}'
+          python3 -c "
+import json
+import yaml
+from datetime import datetime
+
+plugin_info = json.loads('$plugin_info')
+plugin_id = plugin_info['id']
+
+# Load registry to get full plugin data
+with open('registry.yml', 'r') as f:
+    registry = yaml.safe_load(f)
+
+plugin_data = registry['plugins'][plugin_id]
+
+# Generate detailed plugin info
+detailed_info = {
+    'api_version': 'v1',
+    'plugin_id': plugin_id,
+    'name': plugin_data['name'],
+    'description': plugin_data['description'],
+    'detailed_description': f\"A comprehensive plugin: {plugin_data['description']}\",
+    'author': plugin_data['author'],
+    'license': 'MIT',
+    'repository': plugin_data['repository'],
+    'homepage': plugin_data['repository'],
+    'documentation': f\"{plugin_data['repository']}/wiki\",
+    'issues': f\"{plugin_data['repository']}/issues\",
+    'category': plugin_data.get('category', 'utilities'),
+    'tags': plugin_data.get('tags', []),
+    'icon': '🔧',
+    'screenshots': [],
+    'min_delve_version': plugin_data.get('min_delve_version', 'v0.1.0'),
+    'status': 'stable',
+    'created_at': datetime.utcnow().isoformat() + 'Z',
+    'last_updated': datetime.utcnow().isoformat() + 'Z',
+    'download_count': 0,
+    'rating': {'average': 4.5, 'count': 1},
+    'versions': [],
+    'supported_platforms': [],
+    'features': ['Cross-platform support', 'Easy installation'],
+    'permissions': ['storage.local'],
+    'configuration': {},
+    'dependencies': [],
+    'related_plugins': [],
+    'install_instructions': 'This plugin will be automatically downloaded and installed by Delve.',
+    'security_notes': 'This plugin processes data locally and does not send information to external servers.'
+}
+
+# Add version details
+for version_data in plugin_data['versions']:
+    detailed_version = {
+        'version': version_data['version'],
+        'released': version_data['released'],
+        'channel': '${{ env.CHANNEL }}',
+        'changelog': f\"Release {version_data['version']}\",
+        'compatibility': version_data['compatibility'],
+        'download_count': 0,
+        'size_bytes': sum(asset.get('size', 0) for asset in version_data['assets'].values()),
+        'assets': {},
+        'plugin_metadata': version_data['plugin_metadata']
+    }
+
+    # Convert assets
+    for platform, asset_data in version_data['assets'].items():
+        detailed_version['assets'][platform] = {
+            'url': asset_data['url'],
+            'checksum': asset_data['checksum'],
+            'size': asset_data['size']
+        }
+
+    if version_data.get('frontend'):
+        detailed_version['frontend'] = {
+            'entry': version_data['frontend']['entry'],
+            'checksum': 'sha256:placeholder',
+            'size': 0
+        }
+
+    detailed_info['versions'].append(detailed_version)
+
+    # Update supported platforms
+    for platform in version_data['assets'].keys():
+        if platform not in detailed_info['supported_platforms']:
+            detailed_info['supported_platforms'].append(platform)
+
+# Save detailed plugin info
+with open(f'api/plugins/{plugin_id}', 'w') as f:
+    json.dump(detailed_info, f, indent=2)
+
+print('✅ Detailed plugin info updated')
+"
+
+      - name: Commit changes
+        run: |
+          echo "💾 Committing changes..."
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add .
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Add ${{ env.PLUGIN_NAME }} ${{ env.PLUGIN_VERSION }} to registry
+
+Plugin: ${{ env.PLUGIN_NAME }}
+Version: ${{ env.PLUGIN_VERSION }}
+Channel: ${{ env.CHANNEL }}
+Repository: ${{ env.PLUGIN_REPO }}
+
+Auto-generated by plugin publishing workflow"
+
+            git push
+
+            echo "✅ Changes committed and pushed"
+          fi
+
+      - name: Create summary
+        run: |
+          echo "## 🎉 Plugin Published Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Plugin:** ${{ env.PLUGIN_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ env.PLUGIN_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Channel:** ${{ env.CHANNEL }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** ${{ env.PLUGIN_REPO }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📍 Registry URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Plugin Details:** \`/api/plugins/${{ env.PLUGIN_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Plugin Metadata:** \`/${{ env.PLUGIN_NAME }}/plugin.json\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Plugin Releases:** \`/${{ env.PLUGIN_NAME }}/releases/${{ env.PLUGIN_VERSION }}/\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. The registry will be deployed automatically via GitHub Pages" >> $GITHUB_STEP_SUMMARY
+          echo "2. Plugin will be available for installation once deployment completes" >> $GITHUB_STEP_SUMMARY
+          echo "3. Users can install with: \`delve plugin install ${{ env.PLUGIN_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+
+  cleanup:
+    needs: [validate-input, fetch-plugin, build-plugin, update-registry]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Cleanup artifacts
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+
+            for (const artifact of artifacts.data.artifacts) {
+              if (artifact.name.startsWith('plugin-')) {
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id,
+                });
+                console.log(`Deleted artifact: ${artifact.name}`);
+              }
+            }

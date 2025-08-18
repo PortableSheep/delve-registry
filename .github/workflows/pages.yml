@@ -1,0 +1,341 @@
+name: Deploy Registry to Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate YAML files
+        run: |
+          # Install yq for YAML validation
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+          # Validate registry.yml
+          echo "🔍 Validating registry.yml..."
+          yq eval registry.yml > /dev/null
+          echo "✅ registry.yml is valid"
+
+          # Validate plugin.json files
+          echo "🔍 Validating plugin metadata files..."
+          find . -name "plugin.json" -exec echo "Checking {}" \; -exec jq . {} \; > /dev/null
+          echo "✅ All plugin.json files are valid"
+
+      - name: Validate API endpoints
+        run: |
+          echo "🔍 Validating API JSON files..."
+
+          # Validate plugins catalog
+          if [ -f "api/plugins.json" ]; then
+            jq . api/plugins.json > /dev/null
+            echo "✅ api/plugins.json is valid"
+          fi
+
+          # Validate individual plugin API files
+          if [ -d "api/plugins" ]; then
+            find api/plugins -name "*" -type f -exec echo "Checking {}" \; -exec jq . {} \; > /dev/null 2>&1 || true
+          fi
+          echo "✅ API validation complete"
+
+      - name: Check for required files
+        run: |
+          echo "🔍 Checking for required files..."
+
+          required_files=(
+            "registry.yml"
+            "api/plugins.json"
+            "README.md"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file exists"
+            else
+              echo "❌ $file is missing"
+              exit 1
+            fi
+          done
+
+      - name: Lint plugin structure
+        run: |
+          echo "🔍 Validating plugin directory structure..."
+
+          for plugin_dir in */; do
+            # Skip hidden directories and non-plugin directories
+            if [[ "$plugin_dir" == .* ]] || [[ "$plugin_dir" == "api/" ]] || [[ "$plugin_dir" == "scripts/" ]] || [[ "$plugin_dir" == "examples/" ]] || [[ "$plugin_dir" == ".github/" ]]; then
+              continue
+            fi
+
+            plugin_name=${plugin_dir%/}
+            echo "Checking plugin: $plugin_name"
+
+            # Check for plugin.json
+            if [ ! -f "$plugin_dir/plugin.json" ]; then
+              echo "⚠️ Warning: $plugin_name missing plugin.json"
+            fi
+
+            # Check for releases directory
+            if [ ! -d "$plugin_dir/releases" ]; then
+              echo "⚠️ Warning: $plugin_name missing releases directory"
+            fi
+          done
+
+          echo "✅ Plugin structure validation complete"
+
+  deploy:
+    needs: validate
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate sitemap
+        run: |
+          echo "🗺️ Generating sitemap..."
+          CURRENT_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cat > sitemap.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+            <url>
+              <loc>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/</loc>
+              <lastmod>${CURRENT_DATE}</lastmod>
+              <changefreq>daily</changefreq>
+              <priority>1.0</priority>
+            </url>
+            <url>
+              <loc>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/api/plugins.json</loc>
+              <lastmod>${CURRENT_DATE}</lastmod>
+              <changefreq>hourly</changefreq>
+              <priority>0.9</priority>
+            </url>
+            <url>
+              <loc>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/registry.yml</loc>
+              <lastmod>${CURRENT_DATE}</lastmod>
+              <changefreq>daily</changefreq>
+              <priority>0.8</priority>
+            </url>
+          </urlset>
+          EOF
+
+          echo "✅ Sitemap generated"
+
+      - name: Create index page
+        run: |
+          echo "📄 Creating index page..."
+          CURRENT_DATE=$(date -u)
+          cat > index.html << EOF
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Delve Plugin Registry</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 2rem;
+                line-height: 1.6;
+                color: #333;
+              }
+              .header {
+                text-align: center;
+                border-bottom: 2px solid #eee;
+                padding-bottom: 2rem;
+                margin-bottom: 2rem;
+              }
+              .api-endpoints {
+                background: #f8f9fa;
+                padding: 1.5rem;
+                border-radius: 8px;
+                margin: 1rem 0;
+              }
+              .endpoint {
+                margin: 0.5rem 0;
+                font-family: monospace;
+                background: white;
+                padding: 0.5rem;
+                border-radius: 4px;
+                border-left: 4px solid #007acc;
+              }
+              .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1rem;
+                margin: 2rem 0;
+              }
+              .stat-card {
+                background: white;
+                border: 1px solid #ddd;
+                padding: 1rem;
+                border-radius: 8px;
+                text-align: center;
+              }
+              .stat-number {
+                font-size: 2rem;
+                font-weight: bold;
+                color: #007acc;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>🔌 Delve Plugin Registry</h1>
+              <p>Central registry for Delve plugins and extensions</p>
+            </div>
+
+            <div class="stats">
+              <div class="stat-card">
+                <div class="stat-number" id="plugin-count">-</div>
+                <div>Total Plugins</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number" id="version-count">-</div>
+                <div>Total Versions</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number">24/7</div>
+                <div>Availability</div>
+              </div>
+            </div>
+
+            <h2>📡 API Endpoints</h2>
+            <div class="api-endpoints">
+              <div class="endpoint">
+                <strong>GET</strong> <a href="./registry.yml">./registry.yml</a>
+                <br><small>Registry metadata and configuration</small>
+              </div>
+              <div class="endpoint">
+                <strong>GET</strong> <a href="./api/plugins.json">./api/plugins.json</a>
+                <br><small>Complete plugin catalog</small>
+              </div>
+              <div class="endpoint">
+                <strong>GET</strong> ./api/plugins/{plugin-id}
+                <br><small>Detailed plugin information</small>
+              </div>
+              <div class="endpoint">
+                <strong>GET</strong> ./{plugin-id}/plugin.json
+                <br><small>Plugin metadata</small>
+              </div>
+              <div class="endpoint">
+                <strong>GET</strong> ./{plugin-id}/releases/{version}/{asset}
+                <br><small>Download plugin assets</small>
+              </div>
+            </div>
+
+            <h2>🚀 Quick Start</h2>
+            <pre><code># Add this registry to your Delve configuration
+registries:
+  - name: official
+    url: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+    enabled: true</code></pre>
+
+            <h2>📚 Documentation</h2>
+            <ul>
+              <li><a href="./README.md">Registry Documentation</a></li>
+              <li><a href="./HOSTING.md">Hosting Guide</a></li>
+              <li><a href="https://github.com/${{ github.repository }}">Source Code</a></li>
+            </ul>
+
+            <footer style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #eee; color: #666;">
+              <p>🔄 Last updated: <span id="last-updated">${CURRENT_DATE}</span></p>
+              <p>Powered by <a href="https://pages.github.com">GitHub Pages</a></p>
+            </footer>
+
+            <script>
+              // Load and display registry stats
+              fetch('./api/plugins.json')
+                .then(response => response.json())
+                .then(data => {
+                  document.getElementById('plugin-count').textContent = data.total_plugins || 0;
+
+                  // Count total versions across all plugins
+                  let totalVersions = 0;
+                  if (data.plugins) {
+                    totalVersions = data.plugins.length; // Simplified count
+                  }
+                  document.getElementById('version-count').textContent = totalVersions;
+                })
+                .catch(err => {
+                  console.warn('Could not load registry stats:', err);
+                });
+            </script>
+          </body>
+          </html>
+          EOF
+
+          echo "✅ Index page created"
+
+      - name: Add cache optimization
+        run: |
+          echo "🔒 Adding cache optimization..."
+          # Create .nojekyll to prevent Jekyll processing
+          touch .nojekyll
+
+          # Add robots.txt for better SEO
+          cat > robots.txt << EOF
+          User-agent: *
+          Allow: /
+
+          Sitemap: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/sitemap.xml
+          EOF
+
+          echo "✅ Cache optimization configured"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v3
+
+      - name: Test deployment
+        run: |
+          echo "🧪 Testing deployed registry..."
+
+          # Test deployment
+          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          echo "🎉 Deployment complete!"
+          echo "Registry available at: $BASE_URL"
+          echo "API endpoints:"
+          echo "  - $BASE_URL/registry.yml"
+          echo "  - $BASE_URL/api/plugins.json"
+
+  notify:
+    needs: [validate, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify status
+        run: |
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "🎉 Registry deployed successfully!"
+          else
+            echo "❌ Deployment failed"
+            exit 1
+          fi

@@ -1,0 +1,127 @@
+{
+  "api_version": "v1",
+  "plugin_id": "json-linter-formatter",
+  "name": "JSON Linter & Formatter",
+  "description": "Pretty print and validate JSON data with syntax highlighting and error detection",
+  "detailed_description": "A comprehensive JSON processing plugin that provides real-time validation, pretty printing, and formatting capabilities. Features include syntax error detection, customizable indentation, color-coded syntax highlighting, and support for large JSON files.",
+  "author": "PortableSheep",
+  "license": "Apache-2.0",
+  "repository": "github.com/delve-plugins/json-formatter",
+  "homepage": "https://github.com/delve-plugins/json-formatter",
+  "documentation": "https://github.com/delve-plugins/json-formatter/wiki",
+  "issues": "https://github.com/delve-plugins/json-formatter/issues",
+  "category": "data-tools",
+  "tags": ["json", "formatter", "linter", "utility", "validation"],
+  "icon": "🔧",
+  "screenshots": [
+    "https://github.com/delve-plugins/json-formatter/raw/main/docs/screenshot1.png",
+    "https://github.com/delve-plugins/json-formatter/raw/main/docs/screenshot2.png"
+  ],
+  "min_delve_version": "v0.1.0",
+  "status": "stable",
+  "created_at": "2024-01-10T08:00:00Z",
+  "last_updated": "2024-01-15T10:00:00Z",
+  "download_count": 156,
+  "rating": {
+    "average": 4.7,
+    "count": 23
+  },
+  "versions": [
+    {
+      "version": "v1.0.0",
+      "released": "2024-01-15T10:00:00Z",
+      "channel": "stable",
+      "changelog": "Initial stable release with full JSON validation and formatting support",
+      "compatibility": ["v0.1.0", "v0.2.0"],
+      "download_count": 89,
+      "size_bytes": 5242880,
+      "assets": {
+        "darwin-amd64": {
+          "url": "json-linter-formatter/releases/v1.0.0/json-linter-formatter-darwin-amd64",
+          "checksum": "sha256:a1b2c3d4e5f6789abcdef1234567890abcdef1234567890abcdef1234567890ab",
+          "size": 5242880
+        },
+        "darwin-arm64": {
+          "url": "json-linter-formatter/releases/v1.0.0/json-linter-formatter-darwin-arm64",
+          "checksum": "sha256:b2c3d4e5f6789abcdef1234567890abcdef1234567890abcdef1234567890abc1",
+          "size": 4980736
+        },
+        "linux-amd64": {
+          "url": "json-linter-formatter/releases/v1.0.0/json-linter-formatter-linux-amd64",
+          "checksum": "sha256:c3d4e5f6789abcdef1234567890abcdef1234567890abcdef1234567890abc12",
+          "size": 5767168
+        },
+        "windows-amd64": {
+          "url": "json-linter-formatter/releases/v1.0.0/json-linter-formatter-windows-amd64.exe",
+          "checksum": "sha256:d4e5f6789abcdef1234567890abcdef1234567890abcdef1234567890abc123",
+          "size": 6291456
+        }
+      },
+      "frontend": {
+        "entry": "plugin.js",
+        "checksum": "sha256:e5f6789abcdef1234567890abcdef1234567890abcdef1234567890abc1234",
+        "size": 245760
+      },
+      "plugin_metadata": {
+        "url": "json-linter-formatter/plugin.json",
+        "checksum": "sha256:f6789abcdef1234567890abcdef1234567890abcdef1234567890abc12345"
+      }
+    },
+    {
+      "version": "v0.9.0-beta.1",
+      "released": "2024-01-10T15:00:00Z",
+      "channel": "beta",
+      "changelog": "Beta release with experimental features",
+      "compatibility": ["v0.1.0"],
+      "download_count": 67,
+      "size_bytes": 5100000,
+      "assets": {
+        "darwin-amd64": {
+          "url": "json-linter-formatter/releases/v0.9.0-beta.1/json-linter-formatter-darwin-amd64",
+          "checksum": "sha256:g789abcdef1234567890abcdef1234567890abcdef1234567890abc123456",
+          "size": 5100000
+        },
+        "linux-amd64": {
+          "url": "json-linter-formatter/releases/v0.9.0-beta.1/json-linter-formatter-linux-amd64",
+          "checksum": "sha256:h89abcdef1234567890abcdef1234567890abcdef1234567890abc1234567",
+          "size": 5500000
+        }
+      }
+    }
+  ],
+  "supported_platforms": ["darwin-amd64", "darwin-arm64", "linux-amd64", "windows-amd64"],
+  "features": [
+    "Real-time JSON validation",
+    "Pretty printing with customizable indentation",
+    "Syntax error highlighting",
+    "Large file support (up to 100MB)",
+    "Copy formatted output to clipboard",
+    "Minify JSON option",
+    "Dark/light theme support"
+  ],
+  "permissions": [
+    "storage.local",
+    "clipboard.write"
+  ],
+  "configuration": {
+    "indent_size": {
+      "type": "integer",
+      "default": 2,
+      "description": "Number of spaces for indentation"
+    },
+    "validate_on_paste": {
+      "type": "boolean",
+      "default": true,
+      "description": "Automatically validate JSON when pasted"
+    },
+    "max_file_size": {
+      "type": "integer",
+      "default": 104857600,
+      "description": "Maximum file size in bytes (100MB default)"
+    }
+  },
+  "dependencies": [],
+  "related_plugins": ["xml-formatter", "yaml-validator"],
+  "install_instructions": "This plugin will be automatically downloaded and installed by Delve. No additional setup required.",
+  "security_notes": "This plugin processes data locally and does not send any information to external servers."
+}

@@ -1,0 +1,73 @@
+{
+  "api_version": "v1",
+  "generated_at": "2024-01-15T10:30:00Z",
+  "total_plugins": 2,
+  "plugins": [
+    {
+      "id": "json-linter-formatter",
+      "name": "JSON Linter & Formatter",
+      "description": "Pretty print and validate JSON data",
+      "author": "PortableSheep",
+      "license": "Apache-2.0",
+      "category": "data-tools",
+      "tags": ["json", "formatter", "linter", "utility"],
+      "latest_version": "v1.0.0",
+      "min_delve_version": "v0.1.0",
+      "repository": "github.com/delve-plugins/json-formatter",
+      "homepage": "https://github.com/delve-plugins/json-formatter",
+      "download_count": 0,
+      "last_updated": "2024-01-15T10:00:00Z",
+      "status": "stable",
+      "supported_platforms": ["darwin-amd64", "darwin-arm64", "linux-amd64", "windows-amd64"],
+      "icon": "🔧",
+      "api_urls": {
+        "details": "/api/plugins/json-linter-formatter",
+        "versions": "/api/plugins/json-linter-formatter/versions",
+        "metadata": "/json-linter-formatter/plugin.json"
+      }
+    },
+    {
+      "id": "github-dashboard",
+      "name": "GitHub Dashboard",
+      "description": "Monitor GitHub repositories and pull requests",
+      "author": "Michael Gunderson",
+      "license": "MIT",
+      "category": "development-tools",
+      "tags": ["github", "dashboard", "monitoring", "git"],
+      "latest_version": "v1.0.0",
+      "min_delve_version": "v0.1.0",
+      "repository": "github.com/delve-plugins/github-dashboard",
+      "homepage": "https://github.com/delve-plugins/github-dashboard",
+      "download_count": 0,
+      "last_updated": "2024-01-15T09:00:00Z",
+      "status": "stable",
+      "supported_platforms": ["darwin-amd64", "linux-amd64"],
+      "icon": "🐙",
+      "api_urls": {
+        "details": "/api/plugins/github-dashboard",
+        "versions": "/api/plugins/github-dashboard/versions",
+        "metadata": "/github-dashboard/plugin.json"
+      }
+    }
+  ],
+  "categories": [
+    {
+      "id": "data-tools",
+      "name": "Data Tools",
+      "description": "Plugins for data manipulation, formatting, and analysis",
+      "plugin_count": 1
+    },
+    {
+      "id": "development-tools",
+      "name": "Development Tools",
+      "description": "Plugins for software development workflows",
+      "plugin_count": 1
+    }
+  ],
+  "filters": {
+    "categories": ["data-tools", "development-tools", "monitoring", "utilities"],
+    "licenses": ["Apache-2.0", "MIT"],
+    "platforms": ["darwin-amd64", "darwin-arm64", "linux-amd64", "windows-amd64"],
+    "channels": ["stable", "beta", "development"]
+  }
+}

@@ -1,0 +1,127 @@
+# Delve Plugin Registry
+# This registry provides metadata for plugin discovery and distribution
+# Host-specific settings (enabled/disabled, auto_update) are managed by the host app
+
+registry:
+  name: "Official Delve Plugin Registry"
+  description: "Central registry for Delve plugins"
+  maintainer: "portablesheep"
+  url: "https://github.com/PortableSheep/delve-registry"
+  api_version: "v1"
+  last_updated: "2024-01-15T10:30:00Z"
+
+# Plugin catalog - contains discovery metadata only
+plugins:
+  json-linter-formatter:
+    name: "JSON Linter & Formatter"
+    description: "Pretty print and validate JSON data"
+    author: "PortableSheep"
+    license: "Apache-2.0"
+    repository: "github.com/delve-plugins/json-formatter"
+    homepage: "https://github.com/delve-plugins/json-formatter"
+    tags: ["json", "formatter", "linter", "utility"]
+    category: "data-tools"
+    min_delve_version: "v0.1.0"
+    versions:
+      - version: "v1.0.0"
+        released: "2024-01-15T10:00:00Z"
+        compatibility: ["v0.1.0", "v0.2.0"]
+        assets:
+          darwin-amd64:
+            url: "json-linter-formatter/releases/v1.0.0/json-linter-formatter-darwin-amd64"
+            checksum: "sha256:abc123..."
+            size: 5242880
+          darwin-arm64:
+            url: "json-linter-formatter/releases/v1.0.0/json-linter-formatter-darwin-arm64"
+            checksum: "sha256:def456..."
+            size: 4980736
+          linux-amd64:
+            url: "json-linter-formatter/releases/v1.0.0/json-linter-formatter-linux-amd64"
+            checksum: "sha256:ghi789..."
+            size: 5767168
+          windows-amd64:
+            url: "json-linter-formatter/releases/v1.0.0/json-linter-formatter-windows-amd64.exe"
+            checksum: "sha256:jkl012..."
+            size: 6291456
+        frontend:
+          entry: "plugin.js"
+          checksum: "sha256:mno345..."
+        plugin_metadata:
+          url: "json-linter-formatter/plugin.json"
+          checksum: "sha256:pqr678..."
+
+  github-dashboard:
+    name: "GitHub Dashboard"
+    description: "Monitor GitHub repositories and pull requests"
+    author: "Michael Gunderson"
+    license: "MIT"
+    repository: "github.com/delve-plugins/github-dashboard"
+    homepage: "https://github.com/delve-plugins/github-dashboard"
+    tags: ["github", "dashboard", "monitoring", "git"]
+    category: "development-tools"
+    min_delve_version: "v0.1.0"
+    versions:
+      - version: "v1.0.0"
+        released: "2024-01-15T09:00:00Z"
+        compatibility: ["v0.1.0", "v0.2.0"]
+        assets:
+          darwin-amd64:
+            url: "github-dashboard/releases/v1.0.0/github-dashboard-darwin-amd64"
+            checksum: "sha256:stu901..."
+            size: 8388608
+          linux-amd64:
+            url: "github-dashboard/releases/v1.0.0/github-dashboard-linux-amd64"
+            checksum: "sha256:vwx234..."
+            size: 9437184
+        frontend:
+          entry: "frontend/dist/index.html"
+          checksum: "sha256:yza567..."
+        plugin_metadata:
+          url: "github-dashboard/plugin.json"
+          checksum: "sha256:bcd890..."
+
+# Registry configuration for discovery and updates
+channels:
+  stable:
+    description: "Stable, production-ready releases"
+    include_prerelease: false
+    default: true
+  beta:
+    description: "Beta releases for testing"
+    include_prerelease: true
+  development:
+    description: "Latest development builds"
+    include_prerelease: true
+
+# Categories for plugin organization
+categories:
+  data-tools:
+    name: "Data Tools"
+    description: "Plugins for data manipulation, formatting, and analysis"
+  development-tools:
+    name: "Development Tools"
+    description: "Plugins for software development workflows"
+  monitoring:
+    name: "Monitoring & Analytics"
+    description: "Plugins for monitoring systems and analyzing metrics"
+  utilities:
+    name: "Utilities"
+    description: "General purpose utility plugins"
+
+# API endpoints that hosts can use
+api:
+  base_url: "https://raw.githubusercontent.com/PortableSheep/delve-registry/main"
+  endpoints:
+    registry_metadata: "/registry.yml"
+    plugin_list: "/api/plugins"
+    plugin_details: "/api/plugins/{plugin_id}"
+    plugin_versions: "/api/plugins/{plugin_id}/versions"
+    download_asset: "/{plugin_id}/releases/{version}/{asset_name}"
+    plugin_metadata: "/{plugin_id}/plugin.json"
+
+# Statistics and metrics
+stats:
+  total_plugins: 2
+  total_versions: 2
+  total_downloads: 0
+  most_popular: ["json-linter-formatter", "github-dashboard"]

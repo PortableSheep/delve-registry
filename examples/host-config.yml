@@ -1,0 +1,97 @@
+# Delve Host Configuration
+# This file contains user preferences and host-specific settings
+# Plugin discovery and metadata comes from the registry
+
+# User's installed plugins with their preferences
+installed_plugins:
+  json-linter-formatter:
+    enabled: true
+    auto_update: false
+    version: "v1.0.0"
+    config:
+      indent_size: 4
+      validate_on_paste: true
+      max_file_size: 52428800  # 50MB
+
+  github-dashboard:
+    enabled: true
+    auto_update: true
+    version: "v1.0.0"
+    config:
+      github_token: "${GITHUB_TOKEN}"  # Reference to environment variable
+      repositories:
+        - "PortableSheep/delve"
+        - "PortableSheep/delve-registry"
+      refresh_interval: 300
+
+# Global host settings
+settings:
+  # Plugin management
+  auto_check_updates: true
+  update_check_interval: "6h"
+  allow_prerelease: false
+  max_concurrent_downloads: 3
+
+  # Cache and storage
+  cache_directory: "./plugin_cache"
+  max_cache_size: "1GB"
+  cache_cleanup_interval: "24h"
+
+  # Security
+  verify_checksums: true
+  require_signatures: false
+  trusted_publishers: ["PortableSheep", "delve-plugins"]
+
+  # UI preferences
+  show_plugin_notifications: true
+  auto_install_dependencies: true
+  preferred_channel: "stable"
+
+# Registry configuration
+registries:
+  - name: "official"
+    url: "https://raw.githubusercontent.com/PortableSheep/delve-registry/main"
+    enabled: true
+    priority: 1
+    auto_update: true
+    update_interval: "12h"
+
+  # Example of additional registry
+  # - name: "community"
+  #   url: "https://community-plugins.delve.dev"
+  #   enabled: false
+  #   priority: 2
+  #   auto_update: false
+
+# Channel preferences
+channels:
+  stable:
+    auto_update_allowed: true
+    notification_level: "major"
+  beta:
+    auto_update_allowed: false
+    notification_level: "all"
+  development:
+    auto_update_allowed: false
+    notification_level: "none"
+
+# Authentication (for private registries or GitHub API)
+auth:
+  github_token_env: "GITHUB_TOKEN"
+  # registry_tokens:
+  #   community: "${COMMUNITY_REGISTRY_TOKEN}"
+
+# Logging and diagnostics
+logging:
+  level: "info"
+  plugin_logs: true
+  log_file: "./logs/delve.log"
+  max_log_size: "10MB"
+  log_retention_days: 7
+
+# Last sync information (managed by Delve)
+last_updated: "2024-01-15T10:30:00Z"
+registry_sync:
+  official:
+    last_sync: "2024-01-15T10:30:00Z"
+    etag: "W/\"abc123def456\""
