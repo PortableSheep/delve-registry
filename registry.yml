@@ -17,8 +17,8 @@ plugins:
     description: "Pretty print and validate JSON data"
     author: "PortableSheep"
     license: "Apache-2.0"
-    repository: "github.com/delve-plugins/json-formatter"
-    homepage: "https://github.com/delve-plugins/json-formatter"
+    repository: "https://github.com/PortableSheep/delve-plugins/json-formatter"
+    homepage: "https://github.com/PortableSheep/delve-plugins/json-formatter"
     tags: ["json", "formatter", "linter", "utility"]
     category: "data-tools"
     min_delve_version: "v0.1.0"
@@ -55,8 +55,8 @@ plugins:
     description: "Monitor GitHub repositories and pull requests"
     author: "Michael Gunderson"
     license: "MIT"
-    repository: "github.com/delve-plugins/github-dashboard"
-    homepage: "https://github.com/delve-plugins/github-dashboard"
+    repository: "https://github.com/PortableSheep/delve-plugins/github-dashboard"
+    homepage: "https://github.com/PortableSheep/delve-plugins/github-dashboard"
     tags: ["github", "dashboard", "monitoring", "git"]
     category: "development-tools"
     min_delve_version: "v0.1.0"
