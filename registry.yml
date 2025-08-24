@@ -1,139 +1,93 @@
-# Delve Plugin Registry
-# This registry provides metadata for plugin discovery and distribution
-# Host-specific settings (enabled/disabled, auto_update) are managed by the host app
-
 registry:
-  name: "Official Delve Plugin Registry"
-  description: "Central registry for Delve plugins"
-  maintainer: "portablesheep"
-  url: "https://github.com/PortableSheep/delve-registry"
-  api_version: "v1"
-  last_updated: "2025-08-19T02:58:22Z"
-
-# Plugin catalog - contains discovery metadata only
+  name: Official Delve Plugin Registry
+  description: Central registry for Delve plugins
+  maintainer: portablesheep
+  url: https://github.com/PortableSheep/delve-registry
+  api_version: v1
+  last_updated: '2025-08-24T20:31:41.211801Z'
 plugins:
-  json-linter-formatter:
-    name: "JSON Linter & Formatter"
-    description: "Pretty print and validate JSON data"
-    author: "PortableSheep"
-    license: "Apache-2.0"
-    repository: "https://github.com/PortableSheep/delve-plugins/json-formatter"
-    homepage: "https://github.com/PortableSheep/delve-plugins/json-formatter"
-    tags: ["json", "formatter", "linter", "utility"]
-    category: "data-tools"
-    min_delve_version: "v0.1.0"
-    versions:
-      - version: "v1.0.0"
-        released: "2024-01-15T10:00:00Z"
-        compatibility: ["v0.1.0", "v0.2.0"]
-        assets:
-          darwin-amd64:
-            url: "json-linter-formatter/releases/v1.0.0/json-linter-formatter-darwin-amd64"
-            checksum: "sha256:abc123..."
-            size: 5242880
-          darwin-arm64:
-            url: "json-linter-formatter/releases/v1.0.0/json-linter-formatter-darwin-arm64"
-            checksum: "sha256:def456..."
-            size: 4980736
-          linux-amd64:
-            url: "json-linter-formatter/releases/v1.0.0/json-linter-formatter-linux-amd64"
-            checksum: "sha256:ghi789..."
-            size: 5767168
-          windows-amd64:
-            url: "json-linter-formatter/releases/v1.0.0/json-linter-formatter-windows-amd64.exe"
-            checksum: "sha256:jkl012..."
-            size: 6291456
-        frontend:
-          entry: "plugin.js"
-          checksum: "sha256:mno345..."
-        plugin_metadata:
-          url: "json-linter-formatter/plugin.json"
-          checksum: "sha256:pqr678..."
-
   github-dashboard:
-    name: "GitHub Dashboard"
-    description: "Monitor GitHub repositories and pull requests with real-time updates"
-    author: "Michael Gunderson"
-    license: "MIT"
-    repository: "https://github.com/PortableSheep/delve-plugins"
-    homepage: "https://github.com/PortableSheep/delve-plugins/tree/main/github-dashboard"
-    tags: ["github", "dashboard", "monitoring", "git", "repositories"]
-    category: "development-tools"
-    min_delve_version: "v0.1.0"
+    name: GitHub Dashboard
+    description: Monitor GitHub repositories and pull requests with real-time updates
+    author: Michael Gunderson
+    license: MIT
+    repository: https://github.com/PortableSheep/delve-plugins
+    homepage: https://github.com/PortableSheep/delve-plugins/tree/main/github-dashboard
+    tags:
+    - github
+    - dashboard
+    - monitoring
+    - git
+    - repositories
+    category: development-tools
+    min_delve_version: v0.1.0
     versions:
-      - version: "v1.0.0"
-        released: "2025-08-19T02:58:22Z"
-        compatibility: ["v0.1.0", "v0.2.0"]
-        assets:
-          darwin-amd64:
-            url: "github-dashboard/releases/v1.0.0/github-dashboard-darwin-amd64.tar.gz"
-            checksum: "sha256:390ca2a3ece6685013687d5b98a5088f583d397bcb42cdb7eaf05dc272ffedb5"
-            size: 2601874
-          darwin-arm64:
-            url: "github-dashboard/releases/v1.0.0/github-dashboard-darwin-arm64.tar.gz"
-            checksum: "sha256:35285a05e9fa84c38028fda4cd51070bf483c954b3c4af58b908a49dbf03973d"
-            size: 2424205
-          linux-amd64:
-            url: "github-dashboard/releases/v1.0.0/github-dashboard-linux-amd64.tar.gz"
-            checksum: "sha256:aaced8bcffe331700c09200190a3ac8c35886ad93e84bf363f4bc525fe95d011"
-            size: 2563600
-          linux-arm64:
-            url: "github-dashboard/releases/v1.0.0/github-dashboard-linux-arm64.tar.gz"
-            checksum: "sha256:336e845d5d97f2f050106134f5856eaa21f6b40b2378132a8d0b7e543f7e475f"
-            size: 2337589
-          windows-amd64:
-            url: "github-dashboard/releases/v1.0.0/github-dashboard-windows-amd64.zip"
-            checksum: "sha256:0d7283aa5a0f767bde67f2d2d225d40f3d4231adb1267d56711336a09c63144a"
-            size: 2615317
-        frontend:
-          entry: "component.js"
-          checksum: "sha256:b3c4ff24e5ab6067cab9ce13c2e01b0021c69bf075af6f535ae9129bf6d7bdc5"
-        plugin_metadata:
-          url: "github-dashboard/plugin.json"
-          checksum: "sha256:270bdece2a4956e5f00b9a4007c6a8df7a2ce26cc7af243edc96184b4fbafb36"
-
-# Registry configuration for discovery and updates
+    - version: v1.0.0
+      released: '2025-08-24T20:31:35.880136Z'
+      compatibility:
+      - v0.1.0
+      - v0.2.0
+      assets:
+        darwin-amd64:
+          url: github-dashboard/releases/v1.0.0/github-dashboard-darwin-amd64
+          checksum: sha256:eca0abb1b33ec6da98df63a5959db062ce8d3b5377f1fdf6411bf787bfcce841
+          size: 6252592
+        darwin-arm64:
+          url: github-dashboard/releases/v1.0.0/github-dashboard-darwin-arm64
+          checksum: sha256:27cd4b8cd3074fd5d7640c87e18a9cf1a7099235771f86c023a0e12d9210182e
+          size: 5863746
+        linux-amd64:
+          url: github-dashboard/releases/v1.0.0/github-dashboard-linux-amd64
+          checksum: sha256:a35b932adb73471180ab0f0e0d74fec3d7de94bba73c0548ce4ecea3b60964a3
+          size: 6103224
+        linux-arm64:
+          url: github-dashboard/releases/v1.0.0/github-dashboard-linux-arm64
+          checksum: sha256:6f7f703cb06a2354fab1bcbe74f77d363fd1d0600c8c0d349f21d0c71c5134f8
+          size: 5767352
+        windows-amd64:
+          url: github-dashboard/releases/v1.0.0/github-dashboard-windows-amd64.exe
+          checksum: sha256:74c5cc501b0f27870d22fd2192a719304b23f15d37e9f9b40c92690f492b307f
+          size: 6259200
+      frontend:
+        entry: component.js
+        checksum: sha256:ef24d7ec9be12ad3a85584eb9ef9f420027176a14af709e62aa82c63b32ff213
+      plugin_metadata:
+        url: github-dashboard/plugin.json
+        checksum: sha256:e3318d71197824c10992b83aa8c8ce5e219b2346cc75270882241be164b5bb88
 channels:
   stable:
-    description: "Stable, production-ready releases"
+    description: Stable, production-ready releases
     include_prerelease: false
     default: true
   beta:
-    description: "Beta releases for testing"
+    description: Beta releases for testing
     include_prerelease: true
   development:
-    description: "Latest development builds"
+    description: Latest development builds
     include_prerelease: true
-
-# Categories for plugin organization
 categories:
   data-tools:
-    name: "Data Tools"
-    description: "Plugins for data manipulation, formatting, and analysis"
+    name: Data Tools
+    description: Plugins for data manipulation, formatting, and analysis
   development-tools:
-    name: "Development Tools"
-    description: "Plugins for software development workflows"
+    name: Development Tools
+    description: Plugins for software development workflows
   monitoring:
-    name: "Monitoring & Analytics"
-    description: "Plugins for monitoring systems and analyzing metrics"
+    name: Monitoring & Analytics
+    description: Plugins for monitoring systems and analyzing metrics
   utilities:
-    name: "Utilities"
-    description: "General purpose utility plugins"
-
-# API endpoints that hosts can use
+    name: Utilities
+    description: General purpose utility plugins
 api:
-  base_url: "https://raw.githubusercontent.com/PortableSheep/delve-registry/main"
+  base_url: https://raw.githubusercontent.com/PortableSheep/delve-registry/main
   endpoints:
-    registry_metadata: "/registry.yml"
-    plugin_list: "/api/plugins"
-    plugin_details: "/api/plugins/{plugin_id}"
-    plugin_versions: "/api/plugins/{plugin_id}/versions"
-    download_asset: "/{plugin_id}/releases/{version}/{asset_name}"
-    plugin_metadata: "/{plugin_id}/plugin.json"
-
-# Statistics and metrics
+    registry_metadata: /registry.yml
+    plugin_list: /api/plugins.json
+    plugin_details: /api/plugins/{plugin_id}
+    download_asset: /{plugin_id}/releases/{version}/{asset_name}
+    plugin_metadata: /{plugin_id}/plugin.json
 stats:
-  total_plugins: 2
-  total_versions: 2
-  total_downloads: 0
-  most_popular: ["github-dashboard", "json-linter-formatter"]
+  total_plugins: 1
+  total_versions: 1
+  most_popular:
+  - github-dashboard

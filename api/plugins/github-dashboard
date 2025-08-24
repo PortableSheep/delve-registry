@@ -1,0 +1,62 @@
+{
+  "name": "GitHub Dashboard",
+  "description": "Monitor GitHub repositories and pull requests with real-time updates",
+  "author": "Michael Gunderson",
+  "license": "MIT",
+  "repository": "https://github.com/PortableSheep/delve-plugins",
+  "homepage": "https://github.com/PortableSheep/delve-plugins/tree/main/github-dashboard",
+  "tags": [
+    "github",
+    "dashboard",
+    "monitoring",
+    "git",
+    "repositories"
+  ],
+  "category": "development-tools",
+  "min_delve_version": "v0.1.0",
+  "versions": [
+    {
+      "version": "v1.0.0",
+      "released": "2025-08-24T20:31:35.880136Z",
+      "compatibility": [
+        "v0.1.0",
+        "v0.2.0"
+      ],
+      "assets": {
+        "darwin-amd64": {
+          "url": "github-dashboard/releases/v1.0.0/github-dashboard-darwin-amd64",
+          "checksum": "sha256:eca0abb1b33ec6da98df63a5959db062ce8d3b5377f1fdf6411bf787bfcce841",
+          "size": 6252592
+        },
+        "darwin-arm64": {
+          "url": "github-dashboard/releases/v1.0.0/github-dashboard-darwin-arm64",
+          "checksum": "sha256:27cd4b8cd3074fd5d7640c87e18a9cf1a7099235771f86c023a0e12d9210182e",
+          "size": 5863746
+        },
+        "linux-amd64": {
+          "url": "github-dashboard/releases/v1.0.0/github-dashboard-linux-amd64",
+          "checksum": "sha256:a35b932adb73471180ab0f0e0d74fec3d7de94bba73c0548ce4ecea3b60964a3",
+          "size": 6103224
+        },
+        "linux-arm64": {
+          "url": "github-dashboard/releases/v1.0.0/github-dashboard-linux-arm64",
+          "checksum": "sha256:6f7f703cb06a2354fab1bcbe74f77d363fd1d0600c8c0d349f21d0c71c5134f8",
+          "size": 5767352
+        },
+        "windows-amd64": {
+          "url": "github-dashboard/releases/v1.0.0/github-dashboard-windows-amd64.exe",
+          "checksum": "sha256:74c5cc501b0f27870d22fd2192a719304b23f15d37e9f9b40c92690f492b307f",
+          "size": 6259200
+        }
+      },
+      "frontend": {
+        "entry": "component.js",
+        "checksum": "sha256:ef24d7ec9be12ad3a85584eb9ef9f420027176a14af709e62aa82c63b32ff213"
+      },
+      "plugin_metadata": {
+        "url": "github-dashboard/plugin.json",
+        "checksum": "sha256:e3318d71197824c10992b83aa8c8ce5e219b2346cc75270882241be164b5bb88"
+      }
+    }
+  ]
+}
