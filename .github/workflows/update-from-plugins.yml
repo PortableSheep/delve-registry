@@ -1,0 +1,141 @@
+name: Update Registry from Plugins
+
+on:
+  repository_dispatch:
+    types: [plugins-updated]
+  workflow_dispatch:
+
+jobs:
+  update-registry:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout registry repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout plugins repository
+        uses: actions/checkout@v4
+        with:
+          repository: PortableSheep/delve-plugins
+          path: plugins
+          ref: ${{ github.event.client_payload.ref || 'main' }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install PyYAML
+
+      - name: Generate registry files
+        run: |
+          cd plugins
+          python .github/scripts/simple-registry-generator.py
+
+      - name: Copy generated files to registry
+        run: |
+          # Copy the generated registry.yml
+          cp plugins/registry.yml ./
+
+          # Copy API files
+          rm -rf api/
+          cp -r plugins/api ./
+
+          # Copy plugin.json files to their directories
+          for plugin in plugins/*/; do
+            plugin_name=$(basename "$plugin")
+            # Skip hidden directories and scripts
+            if [[ ! "$plugin_name" =~ ^\. && "$plugin_name" != "scripts" && "$plugin_name" != ".github" ]]; then
+              if [ -f "$plugin/plugin.json" ]; then
+                mkdir -p "$plugin_name"
+                cp "$plugin/plugin.json" "$plugin_name/"
+                echo "✅ Copied plugin.json for $plugin_name"
+              fi
+            fi
+          done
+
+          # Copy release assets
+          for plugin in plugins/*/; do
+            plugin_name=$(basename "$plugin")
+            # Skip hidden directories and scripts
+            if [[ ! "$plugin_name" =~ ^\. && "$plugin_name" != "scripts" && "$plugin_name" != ".github" ]]; then
+              if [ -d "$plugin/releases" ]; then
+                mkdir -p "$plugin_name"
+                cp -r "$plugin/releases" "$plugin_name/"
+                echo "✅ Copied releases for $plugin_name"
+              fi
+            fi
+          done
+
+      - name: Verify registry structure
+        run: |
+          echo "📊 Registry Structure:"
+          echo "=================="
+          ls -la
+          echo ""
+          echo "📋 Registry Contents:"
+          if [ -f registry.yml ]; then
+            echo "✅ registry.yml exists"
+            python -c "import yaml; data=yaml.safe_load(open('registry.yml')); print(f'   Plugins: {len(data.get(\"plugins\", {}))}')"
+          else
+            echo "❌ registry.yml missing"
+          fi
+
+          if [ -d api ]; then
+            echo "✅ API directory exists"
+            echo "   Files: $(ls api/ | wc -l)"
+          else
+            echo "❌ API directory missing"
+          fi
+
+      - name: Commit and push registry updates
+        run: |
+          git config user.name "Plugin Registry Bot"
+          git config user.email "registry-bot@delve.local"
+
+          git add .
+
+          if git diff --staged --quiet; then
+            echo "📝 No changes to commit"
+          else
+            # Get commit info from the trigger
+            PLUGINS_SHA="${{ github.event.client_payload.sha || 'unknown' }}"
+            PLUGINS_REF="${{ github.event.client_payload.ref || 'main' }}"
+
+            git commit -m "🤖 Auto-update registry from plugins@${PLUGINS_SHA:0:7}
+
+            Triggered by: ${{ github.event.client_payload.plugins_repo }}
+            Ref: ${PLUGINS_REF}
+            Updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+            git push
+            echo "✅ Registry updated and pushed"
+          fi
+
+      - name: Create summary
+        run: |
+          echo "## 📊 Registry Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.event.client_payload.plugins_repo || 'Manual' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source commit**: \`${{ github.event.client_payload.sha || 'unknown' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Updated at**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f registry.yml ]; then
+            PLUGIN_COUNT=$(python -c "import yaml; data=yaml.safe_load(open('registry.yml')); print(len(data.get('plugins', {})))" 2>/dev/null || echo "unknown")
+            echo "- **Total plugins**: $PLUGIN_COUNT" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Registry URL**: https://raw.githubusercontent.com/${{ github.repository }}/main/registry.yml" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Registry update failed!"
+          echo "Check the workflow logs for details."
+          exit 1

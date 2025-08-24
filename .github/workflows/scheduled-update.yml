@@ -1,0 +1,130 @@
+name: Scheduled Registry Update
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  update-registry:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout registry repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout plugins repository
+        uses: actions/checkout@v4
+        with:
+          repository: PortableSheep/delve-plugins
+          path: plugins
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install PyYAML
+
+      - name: Check for plugin changes
+        id: changes
+        run: |
+          # Get last update time from registry.yml
+          LAST_UPDATE=""
+          if [ -f registry.yml ]; then
+            LAST_UPDATE=$(python -c "import yaml; data=yaml.safe_load(open('registry.yml')); print(data.get('registry', {}).get('last_updated', ''))" 2>/dev/null || echo "")
+          fi
+
+          echo "last_update=$LAST_UPDATE" >> $GITHUB_OUTPUT
+
+          # Check if any plugins have newer releases
+          NEEDS_UPDATE=false
+          for plugin in plugins/*/; do
+            plugin_name=$(basename "$plugin")
+            if [[ ! "$plugin_name" =~ ^\. && "$plugin_name" != "scripts" && "$plugin_name" != ".github" ]]; then
+              if [ -d "$plugin/releases" ]; then
+                # Check if releases directory is newer than last update
+                if [ -n "$LAST_UPDATE" ]; then
+                  NEWEST_RELEASE=$(find "$plugin/releases" -type f -newer <(date -d "$LAST_UPDATE" +%Y%m%d%H%M.%S) 2>/dev/null | head -1)
+                  if [ -n "$NEWEST_RELEASE" ]; then
+                    NEEDS_UPDATE=true
+                    echo "Found newer release in $plugin_name"
+                  fi
+                else
+                  NEEDS_UPDATE=true
+                  echo "No previous update time, forcing update"
+                fi
+              fi
+            fi
+          done
+
+          echo "needs_update=$NEEDS_UPDATE" >> $GITHUB_OUTPUT
+
+      - name: Generate registry files
+        if: steps.changes.outputs.needs_update == 'true'
+        run: |
+          cd plugins
+          python .github/scripts/simple-registry-generator.py
+
+      - name: Copy generated files to registry
+        if: steps.changes.outputs.needs_update == 'true'
+        run: |
+          # Copy the generated registry.yml
+          cp plugins/registry.yml ./
+
+          # Copy API files
+          rm -rf api/
+          cp -r plugins/api ./
+
+          # Copy plugin.json files to their directories
+          for plugin in plugins/*/; do
+            plugin_name=$(basename "$plugin")
+            if [[ ! "$plugin_name" =~ ^\. && "$plugin_name" != "scripts" && "$plugin_name" != ".github" ]]; then
+              if [ -f "$plugin/plugin.json" ]; then
+                mkdir -p "$plugin_name"
+                cp "$plugin/plugin.json" "$plugin_name/"
+              fi
+            fi
+          done
+
+          # Copy release assets
+          for plugin in plugins/*/; do
+            plugin_name=$(basename "$plugin")
+            if [[ ! "$plugin_name" =~ ^\. && "$plugin_name" != "scripts" && "$plugin_name" != ".github" ]]; then
+              if [ -d "$plugin/releases" ]; then
+                mkdir -p "$plugin_name"
+                cp -r "$plugin/releases" "$plugin_name/"
+              fi
+            fi
+          done
+
+      - name: Commit and push registry updates
+        if: steps.changes.outputs.needs_update == 'true'
+        run: |
+          git config user.name "Registry Scheduler"
+          git config user.email "scheduler@delve-registry.local"
+
+          git add .
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🕐 Scheduled registry update - $(date -u '+%Y-%m-%d %H:%M UTC')
+
+            Auto-updated from delve-plugins repository
+            Updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+            git push
+            echo "✅ Registry updated via scheduled job"
+          fi
+
+      - name: Log no changes
+        if: steps.changes.outputs.needs_update == 'false'
+        run: |
+          echo "⏭️ No plugin changes detected since last update"
+          echo "Last update: ${{ steps.changes.outputs.last_update }}"
